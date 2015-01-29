@@ -27,9 +27,6 @@
 # because of the overlap of this part with the Dovecot
 # configuration.
 
-source setup/functions.sh # load our functions
-source /etc/mailinabox.conf # load global vars
-
 # ### Install packages.
 
 # Install postfix's packages.
@@ -42,7 +39,7 @@ source /etc/mailinabox.conf # load global vars
 # * `ca-certificates`: A trust store used to squelch postfix warnings about
 #   untrusted opportunistically-encrypted connections.
 
-apt_install postfix postfix-pcre postgrey ca-certificates
+apt-get install -y postfix postfix-pcre ca-certificates
 
 # ### Basic Settings
 
@@ -89,7 +86,6 @@ tools/editconf.py /etc/postfix/main.cf \
 	smtpd_tls_auth_only=yes \
 	smtpd_tls_cert_file=$STORAGE_ROOT/ssl/ssl_certificate.pem \
 	smtpd_tls_key_file=$STORAGE_ROOT/ssl/ssl_private_key.pem \
-	smtpd_tls_dh1024_param_file=$STORAGE_ROOT/ssl/dh2048.pem \
 	smtpd_tls_received_header=yes
 
 # Prevent non-authenticated users from sending mail that requires being
@@ -158,22 +154,12 @@ tools/editconf.py /etc/postfix/main.cf virtual_transport=lmtp:[127.0.0.1]:10025
 # "450 4.7.1 Client host rejected: Service unavailable". This is a retry code, so the mail doesn't properly bounce. #NODOC
 tools/editconf.py /etc/postfix/main.cf \
 	smtpd_sender_restrictions="reject_non_fqdn_sender,reject_unknown_sender_domain,reject_rhsbl_sender dbl.spamhaus.org" \
-	smtpd_recipient_restrictions=permit_sasl_authenticated,permit_mynetworks,"reject_rbl_client zen.spamhaus.org",reject_unlisted_recipient,"check_policy_service inet:127.0.0.1:10023"
-
-# Postfix connects to Postgrey on the 127.0.0.1 interface specifically. Ensure that
-# Postgrey listens on the same interface (and not IPv6, for instance).
-tools/editconf.py /etc/default/postgrey \
-	POSTGREY_OPTS=\"--inet=127.0.0.1:10023\"
+	smtpd_recipient_restrictions=permit_sasl_authenticated,permit_mynetworks,"reject_rbl_client zen.spamhaus.org",reject_unlisted_recipient
 
 # Increase the message size limit from 10MB to 128MB.
 # The same limit is specified in nginx.conf for mail submitted via webmail and Z-Push.
 tools/editconf.py /etc/postfix/main.cf \
 	message_size_limit=134217728
-
-# Allow the two SMTP ports in the firewall.
-
-ufw_allow smtp
-ufw_allow submission
 
 # Restart services
 

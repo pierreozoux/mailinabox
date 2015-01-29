@@ -7,9 +7,6 @@
 # and Postfix (which relies on Dovecot) and destination
 # validation by quering an Sqlite3 database of mail users. 
 
-source setup/functions.sh # load our functions
-source /etc/mailinabox.conf # load global vars
-
 # ### User and Alias Database
 
 # The database of mail users (i.e. authenticated users, who have mailboxes)
@@ -103,11 +100,4 @@ cat > /etc/postfix/virtual-alias-maps.cf << EOF;
 dbpath=$db_path
 query = SELECT destination from (SELECT destination, 0 as priority FROM aliases WHERE source='%s' UNION SELECT email as destination, 1 as priority FROM users WHERE email='%s') ORDER BY priority LIMIT 1;
 EOF
-
-# Restart Services
-##################
-
-restart_service postfix
-restart_service dovecot
-
 
