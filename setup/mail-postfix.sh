@@ -199,6 +199,23 @@ tools/editconf.py /etc/default/postgrey \
 tools/editconf.py /etc/postfix/main.cf \
 	message_size_limit=134217728
 
+# Add OpenDKIM and OpenDMARC as milters to postfix, which is how OpenDKIM
+# intercepts outgoing mail to perform the signing (by adding a mail header)
+# and how they both intercept incoming mail to add Authentication-Results
+# headers. The order possibly/probably matters: OpenDMARC relies on the
+# OpenDKIM Authentication-Results header already being present.
+#
+# Be careful. If we add other milters later, this needs to be concatenated
+# on the smtpd_milters line.
+#
+# The OpenDMARC milter is skipped in the SMTP submission listener by
+# configuring smtpd_milters there to only list the OpenDKIM milter
+# (see mail-postfix.sh).
+tools/editconf.py /etc/postfix/main.cf \
+	"smtpd_milters=inet:127.0.0.1:8891 inet:127.0.0.1:8893"\
+	non_smtpd_milters=\$smtpd_milters \
+	milter_default_action=accept
+
 # Allow the two SMTP ports in the firewall.
 
 ufw_allow smtp
