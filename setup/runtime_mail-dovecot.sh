@@ -55,3 +55,47 @@ chown -R mail.mail $STORAGE_ROOT/mail/mailboxes
 mkdir -p $STORAGE_ROOT/mail/sieve
 chown -R mail.mail $STORAGE_ROOT/mail/sieve
 
+### User Authentication
+
+# The database of mail users (i.e. authenticated users, who have mailboxes)
+# and aliases (forwarders).
+
+db_path=$STORAGE_ROOT/mail/users.sqlite
+
+# Have Dovecot query our database, and not system users, for authentication.
+sed -i "s/#*\(\!include auth-system.conf.ext\)/#\1/"  /etc/dovecot/conf.d/10-auth.conf
+sed -i "s/#\(\!include auth-sql.conf.ext\)/\1/"  /etc/dovecot/conf.d/10-auth.conf
+
+# Specify how the database is to be queried for user authentication (passdb)
+# and where user mailboxes are stored (userdb).
+cat > /etc/dovecot/conf.d/auth-sql.conf.ext << EOF;
+passdb {
+  driver = sql
+  args = /etc/dovecot/dovecot-sql.conf.ext
+}
+userdb {
+  driver = static
+  args = uid=mail gid=mail home=$STORAGE_ROOT/mail/mailboxes/%d/%n
+}
+EOF
+
+# Configure the SQL to query for a user's password.
+cat > /etc/dovecot/dovecot-sql.conf.ext << EOF;
+driver = sqlite
+connect = $db_path
+default_pass_scheme = SHA512-CRYPT
+password_query = SELECT email as user, password FROM users WHERE email='%u';
+EOF
+chmod 0600 /etc/dovecot/dovecot-sql.conf.ext # per Dovecot instructions
+
+# Have Dovecot provide an authorization service that Postfix can access & use.
+cat > /etc/dovecot/conf.d/99-local-auth.conf << EOF;
+service auth {
+  unix_listener /var/spool/postfix/private/auth {
+    mode = 0666
+    user = postfix
+    group = postfix
+  }
+}
+EOF
+
